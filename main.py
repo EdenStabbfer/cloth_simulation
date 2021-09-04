@@ -44,14 +44,14 @@ while True:
 
     if simulation_mode:
         screen.blit(sim_mode_text, (640 - sim_mode_text.get_width()//2, 0))
-        cloth_update(clock.get_time() / 1000)
+        cloth_update(clock.get_time() / 1000, target_point)
     else:
         screen.blit(edit_mode_text, (640 - edit_mode_text.get_width()//2, 0))
 
     pos = pg.mouse.get_pos()
     if right_pressed:
         if target_point:
-            target_point.set_position(pos)
+            target_point.set_position(pos, not simulation_mode)
         else:
             target_point = find_point(pos, 5)
             if not target_point:

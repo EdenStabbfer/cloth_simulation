@@ -1,7 +1,7 @@
 from pygame.math import Vector2
 import pygame
 
-stiffness_k = 12
+stiffness_k = 15
 dump_k = .5
 gravity = 9.81
 mass = 0.1
@@ -32,19 +32,21 @@ def load_points(filename):
         print('Файла не существует')
 
 
-def cloth_update(deltatime):
+def cloth_update(deltatime, target):
     for point in points:
-        point.force_calculate()
+        if point != target:
+            point.force_calculate()
 
     for point in points:
-        point.move(deltatime)
+        if point != target:
+            point.move(deltatime)
 
 
 def draw(surface: pygame.Surface):
     n = len(points)
     used = [False] * n
     for i in range(n):
-        for j in points[i].connections:
+        for j in points[i].connections.keys():
             if not used[j]:
                 pygame.draw.aaline(surface,
                                  line_color,
@@ -83,21 +85,23 @@ class Point:
         self.velocity = Vector2(0, 0)
         self.stop_point = stop_point
 
-        self.connections = []
-        self.dist_to_connects = []
+        self.connections = {}
         self.total_force = Vector2(0, 0)
 
-    def set_connection(self, other):
-        self.connections.append(other)
-        self.dist_to_connects.append((points[other].position - self.position).length())
+    def set_connection(self, other_id):
+        self.connections[other_id] = (points[other_id].position - self.position).length()
+
+    def update_connection(self, other_id):
+        self.set_connection(other_id)
+        points[other_id].set_connection(points.index(self))
 
     def force_calculate(self):
         if not self.stop_point:
             self.total_force.update(0, 0)
-            for i, other_id in enumerate(self.connections):
-                force = (points[other_id].position.distance_to(self.position) - self.dist_to_connects[i]) * stiffness_k + \
-                        (points[other_id].position - self.position).normalize().dot(points[other_id].velocity - self.velocity) * dump_k
-                self.total_force += (points[other_id].position - self.position).normalize() * force
+            for other in self.connections.keys():
+                force = ((points[other].position - self.position).length() - self.connections[other]) * stiffness_k + \
+                        (points[other].position - self.position).normalize()*(points[other].velocity - self.velocity) * dump_k
+                self.total_force += (points[other].position - self.position).normalize() * force
             self.total_force += Vector2(0, 1) * self.mass * gravity
 
     def move(self, deltatime):
@@ -105,6 +109,9 @@ class Point:
             self.velocity += self.total_force / self.mass * deltatime
             self.position += self.velocity * deltatime
 
-    def set_position(self, pos):
+    def set_position(self, pos, update_start_pos):
         self.position = Vector2(pos) / scale
-        #self.start_position.update(pos)
+        if update_start_pos:
+            self.start_position.update(pos)
+            for i, other_id in enumerate(self.connections):
+                self.update_connection(other_id)
